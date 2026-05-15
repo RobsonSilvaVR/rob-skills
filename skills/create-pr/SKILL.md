@@ -1,7 +1,7 @@
 ---
 name: create-pr
 description: Create a pull request from the current context, Jira task, and implemented fix using GitHub MCP or GitHub CLI, then update the Jira documentation field with a release-friendly description.
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Create PR
@@ -146,6 +146,43 @@ Collect:
 Apply the branch rules defined above.
 
 If a new branch must be created, create it before creating the PR.
+
+### Step 2.1: Commit changes
+
+Before creating the PR, commit all staged or pending changes.
+
+The commit message **must** start with the sub-task code (the branch task code), followed by a short description of the change using a conventional tag.
+
+Format:
+
+```text
+{sub-task-code} [{tag}] {short description}
+```
+
+Supported tags:
+
+| Tag | Uso |
+|-----|-----|
+| `fix` | Correção de bug |
+| `feat` | Nova funcionalidade |
+| `refactor` | Reestruturação sem mudança de comportamento |
+| `docs` | Alteração em documentação |
+| `chore` | Tarefa de manutenção |
+
+Examples:
+
+```text
+PPV-282 [fix] protege loop de processamento contra exceções e refatora executor para scheduler
+PPV-285 [feat] adiciona validação de cupom no fluxo de encerramento
+PPV-286 [refactor] extrai lógica de cálculo fiscal para classe dedicada
+```
+
+Rules:
+
+- The sub-task code is the task code from the current branch name (e.g., `PPV-286` if the branch is `PPV-286`).
+- If the branch does not contain a task code, use the task code provided in the command or resolved from the sub-task logic.
+- The description must be concise and written in lowercase.
+- Do not use generic messages like "fix bug" or "update code".
 
 ### Step 3: Inspect the implemented fix
 
