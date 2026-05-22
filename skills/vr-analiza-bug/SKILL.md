@@ -1,7 +1,7 @@
 ---
-name: bug-analyzer
+name: vr-analiza-bug
 description: Analyze a Jira task using the Jira MCP, classify the bug by complexity, inspect the current repository code to identify the real affected implementation path, and produce either a lightweight or structured correction analysis. Stop immediately if the Jira MCP is unavailable. If spec-kit is configured in the current repository, suggest creating a specification at the end.
-version: 2.2.0
+version: 2.3.0
 ---
 
 # Bug Analyzer
@@ -62,16 +62,16 @@ If no relevant code can be found, explicitly say that the code inspection was in
 Supported invocation patterns:
 
 ```text
-/bug-analyzer PPV-262
+/vr-analiza-bug PPV-262
 ```
 
 ```text
-/bug-analyzer PPV-262 Informação adicional: O fluxo manual que está na descrição da tarefa se refere ao fluxo executado pelo VRMaster
+/vr-analiza-bug PPV-262 Informação adicional: O fluxo manual que está na descrição da tarefa se refere ao fluxo executado pelo VRMaster
 ```
 
 Interpretation rules:
 
-- The first argument after `/bug-analyzer` is the Jira issue key.
+- The first argument after `/vr-analiza-bug` is the Jira issue key.
 - Any remaining text must be treated as complementary context from the user.
 - User-provided complementary context must refine the analysis, never replace the Jira task as the primary source.
 
@@ -219,6 +219,14 @@ Include:
 9. **Regression checks** — nearby flows or behaviors that may break after the correction
 10. **Confidence level** — High / Medium / Low with justification
 
+## Build Validation Preference
+
+When testing the build to validate that the codebase compiles correctly:
+
+- **Prefer Gradle over Maven.** If the repository contains both `build.gradle` (or `build.gradle.kts`) and `pom.xml`, always use Gradle commands (`./gradlew build`, `gradle build`) instead of Maven (`mvn compile`, `mvn package`).
+- If only `pom.xml` is present (no Gradle wrapper or build file), fall back to Maven.
+- Use the Gradle wrapper (`./gradlew` or `gradlew.bat`) when available.
+
 ## Java Swing Investigation Heuristics
 
 When the repository or context indicates a Java Swing application, prioritize checking:
@@ -329,7 +337,7 @@ Stop immediately when:
 Input:
 
 ```text
-/bug-analyzer PPV-262
+/vr-analiza-bug PPV-262
 ```
 
 Expected behavior:
@@ -346,7 +354,7 @@ Expected behavior:
 Input:
 
 ```text
-/bug-analyzer PPV-262 Informação adicional: O fluxo manual que está na descrição da tarefa se refere ao fluxo executado pelo VRMaster
+/vr-analiza-bug PPV-262 Informação adicional: O fluxo manual que está na descrição da tarefa se refere ao fluxo executado pelo VRMaster
 ```
 
 Expected behavior:

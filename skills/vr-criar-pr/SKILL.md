@@ -1,7 +1,7 @@
 ---
-name: create-pr
+name: vr-criar-pr
 description: Create a pull request from the current context, Jira task, and implemented fix using GitHub MCP or GitHub CLI, then update the Jira documentation field with a release-friendly description.
-version: 1.3.0
+version: 1.4.0
 ---
 
 # Create PR
@@ -32,11 +32,11 @@ Using the current repository context, the Jira task, and the implemented fix:
 This skill may be invoked in forms such as:
 
 ```text
-/create-pr
+/vr-criar-pr
 ```
 
 ```text
-/create-pr PPV-286
+/vr-criar-pr PPV-286
 ```
 
 Interpretation rules:
@@ -44,7 +44,7 @@ Interpretation rules:
 - If the user provides a task code after the command, treat it as the branch task code to be used for branch naming when required.
 - The Jira task from the current context remains the main task for the PR description title unless explicitly unknown.
 - If the main context task is unknown and needed for the PR description title, ask the user.
-- If the user runs only `/create-pr`, do not attempt PR creation; instead, provide brief usage instructions and explain how to invoke the skill with a Jira task code.
+- If the user runs only `/vr-criar-pr`, do not attempt PR creation; instead, provide brief usage instructions and explain how to invoke the skill with a Jira task code.
 - If there is no visible implementation related to the requested task in the current branch, ask the user whether they want to proceed using only the Jira description of the main task.
 - If the user confirms, generate the PR from the Jira description of the main task only.
 - If the user does not confirm, stop and ask for guidance.
@@ -113,7 +113,7 @@ If the current branch already contains a task code, even if it is different from
 If the user invokes the skill with something like:
 
 ```text
-/create-pr PPV-286
+/vr-criar-pr PPV-286
 ```
 
 then:
@@ -378,6 +378,41 @@ When filling **Informações de Documentação**:
 - Mention the application and module/menu path when that information can be inferred from Jira or current context.
 - If the menu path or application name cannot be determined reliably, ask the user before updating the field.
 
+### Step 10: Replicate changes to other sub-tasks
+
+After the PR is created successfully for the current sub-task, replicate the same code changes to the remaining sub-tasks of the main Jira task.
+
+**Applicability condition:**
+
+This step only applies when the sub-task used for the current PR is identified as **MAIN** or **LTS** (i.e., its summary contains "MAIN" or "LTS"). If the current sub-task does not match either pattern, skip this step entirely.
+
+**Workflow:**
+
+1. Read the main Jira task's sub-tasks list.
+2. Identify all other sub-tasks whose summary contains **"MAIN"** or **"LTS"** (excluding the one already used in the current PR).
+3. For each remaining qualifying sub-task:
+   a. Determine its target base branch:
+      - If the sub-task summary contains **"MAIN"** → base branch is `main`.
+      - If the sub-task summary contains **"LTS"** → base branch is the `stable-*` branch (use the same `stable-*` branch from the repository context; if multiple exist, ask the user).
+   b. Switch to the target base branch and run `git pull`.
+   c. Create a new branch using the sub-task's issue key (e.g., `PPV-285`).
+   d. Apply the same code changes (use `git cherry-pick` from the commit(s) of the original PR branch, or re-apply the diff).
+   e. If cherry-pick conflicts occur, attempt automatic resolution. If unresolvable, report the conflict to the user and skip that sub-task.
+   f. Commit the changes following the same commit message format (Step 2.1), using the new sub-task code.
+   g. Push the branch.
+   h. Check whether a PR already exists for this branch; if yes, skip PR creation and report the existing PR.
+   i. Create a PR following the same template rules (Steps 5–7), using the new sub-task code for the PR title and the main Jira task for the body `<h1>`.
+   j. Update the Jira documentation field for the new sub-task following Step 8–9 rules.
+
+4. After processing all sub-tasks, return to the original branch.
+
+**Important rules:**
+
+- Only replicate to sub-tasks that contain "MAIN" or "LTS" in their summary.
+- Do not replicate to sub-tasks that have already been completed (status "Done" or "Closed" in Jira).
+- If a sub-task already has an open PR, skip it and report the existing PR URL.
+- The PR description and documentation content should be the same across all sub-tasks since they represent the same fix applied to different branches.
+
 ## Output Expectations
 
 At the end of the execution, report:
@@ -387,12 +422,14 @@ At the end of the execution, report:
 3. Whether the PR was created successfully.
 4. Whether the Jira documentation field was updated successfully.
 5. Any point that required user confirmation.
+6. Which sub-tasks were replicated successfully and their PR URLs.
+7. Which sub-tasks were skipped (already done, already have PR, or conflict) and why.
 
 ## Decision Rules
 
 ### Ask the user before proceeding when:
 
-- The user runs only `/create-pr` without a Jira task code.
+- The user runs only `/vr-criar-pr` without a Jira task code.
 - The current branch is `main`, `master`, `stable-*`, or another protected/generic branch and no matching sub-task (LTS/MAIN) can be found automatically.
 - The main Jira task from the current context is unknown but required for the PR description title.
 - The application name or menu path required for **Informações de Documentação** cannot be inferred reliably.
@@ -418,8 +455,10 @@ Before finishing, ensure that:
 - The Jira update used `contentFormat: "adf"` and the field value is a valid ADF document.
 - The Jira documentation text includes the `[[...]]` wiki-link markup with bold formatting in the ADF structure.
 - An existing open PR was checked before creating a new one.
-- If the user invoked only `/create-pr`, the skill returned usage instructions instead of opening a PR.
+- If the user invoked only `/vr-criar-pr`, the skill returned usage instructions instead of opening a PR.
 - If no code change is visible, the user was asked whether they want to proceed using only the Jira description.
+- If the current sub-task is MAIN or LTS, changes were replicated to the other qualifying sub-tasks.
+- Sub-tasks that are already Done/Closed or already have an open PR were skipped during replication.
 
 ## Example Scenarios
 
@@ -429,7 +468,7 @@ Context:
 
 - Current branch: `feature/PPV-262-ajuste-conferencia`
 - Current Jira task in context: `PPV-262`
-- Command: `/create-pr`
+- Command: `/vr-criar-pr`
 
 Expected behavior:
 
@@ -446,7 +485,7 @@ Context:
 - Current branch: `stable-4-4`
 - Current Jira task in context: `PPV-262`
 - PPV-262 sub-tasks: `PPV-285` ("MAIN - VREncerramento - ..."), `PPV-286` ("LTS - VREncerramento - ...")
-- Command: `/create-pr`
+- Command: `/vr-criar-pr`
 
 Expected behavior:
 
@@ -465,7 +504,7 @@ Context:
 - Current branch: `main`
 - Current Jira task in context: `PPV-262`
 - PPV-262 sub-tasks: `PPV-285` ("MAIN - VREncerramento - ..."), `PPV-286` ("LTS - VREncerramento - ...")
-- Command: `/create-pr`
+- Command: `/vr-criar-pr`
 
 Expected behavior:
 
@@ -483,7 +522,7 @@ Context:
 
 - Current branch: `stable-4-4`
 - Current Jira task in context: `PPV-262`
-- Command: `/create-pr PPV-286`
+- Command: `/vr-criar-pr PPV-286`
 
 Expected behavior:
 
@@ -499,7 +538,7 @@ Expected behavior:
 
 Context:
 
-- Command: `/create-pr`
+- Command: `/vr-criar-pr`
 
 Expected behavior:
 
@@ -507,12 +546,38 @@ Expected behavior:
 - Show the user how to use the skill.
 - Explain that a Jira task code can be passed after the command.
 
+### Scenario 6: Replication to other sub-tasks after PR creation
+
+Context:
+
+- Current branch: `main`
+- Current Jira task in context: `PPV-262`
+- PPV-262 sub-tasks: `PPV-285` ("MAIN - VREncerramento - ..."), `PPV-286` ("LTS - VREncerramento - ...")
+- Command: `/vr-criar-pr`
+
+Expected behavior:
+
+- Detect current branch is `main`.
+- Resolve sub-task `PPV-285` (contains "MAIN") and create branch `PPV-285` from `main`.
+- Create PR for `PPV-285` (Steps 1–9 as normal).
+- **Step 10 triggers:** Current sub-task `PPV-285` is identified as "MAIN", so replication applies.
+- Find remaining qualifying sub-task: `PPV-286` (contains "LTS").
+- Check if `PPV-286` is Done/Closed → if not, proceed.
+- Switch to the `stable-4-4` branch (LTS target), run `git pull`.
+- Create branch `PPV-286` from `stable-4-4`.
+- Cherry-pick the commit(s) from `PPV-285`.
+- Commit with message: `PPV-286 [fix] ...` (same description).
+- Push and create PR for `PPV-286` targeting `stable-4-4`.
+- Update Jira documentation field for `PPV-286`.
+- Return to the original branch.
+- Report both PRs created successfully.
+
 ## Usage Instructions When No Task Is Provided
 
-If the user runs only `/create-pr`, respond with something like:
+If the user runs only `/vr-criar-pr`, respond with something like:
 
 - This skill creates a PR from the current Jira context and branch.
-- To use it, run `/create-pr PPV-286` or `/create-pr` after opening a branch tied to the task.
+- To use it, run `/vr-criar-pr PPV-286` or `/vr-criar-pr` after opening a branch tied to the task.
 - If the branch is protected or generic, the skill will ask which branch should be created.
 
 ## Authoring Notes
