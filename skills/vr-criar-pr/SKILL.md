@@ -1,7 +1,7 @@
 ---
 name: vr-criar-pr
 description: Create a pull request from the current context, Jira task, and implemented fix using GitHub MCP or GitHub CLI, then update the Jira documentation field with a release-friendly description.
-version: 1.4.0
+version: 1.5.0
 ---
 
 # Create PR
@@ -26,6 +26,7 @@ Using the current repository context, the Jira task, and the implemented fix:
 4. Create the pull request using GitHub MCP or GitHub CLI.
 5. Use the PR description template exactly as defined in this skill.
 6. Update the Jira field "Informações de Documentação" with a short, end-user-oriented description of the fix.
+7. As the final action, fill the Jira field "Post-mortem" with a technical bug analysis on the main (parent) task only.
 
 ## Required Inputs
 
@@ -68,6 +69,7 @@ Do not create the PR body only from Jira text when code changes are visible. Alw
 If the current branch is something like:
 
 - `main`
+- `main-4-7`, `main-*` (versioned release branches)
 - `master`
 - `stable-4-4`
 - `stable-*`
@@ -77,27 +79,43 @@ Do not create the PR immediately.
 
 **Automatic sub-task branch resolution:**
 
-Before asking the user for a branch name, attempt automatic resolution using the main Jira task's sub-tasks:
+Before asking the user for a branch name, attempt automatic resolution using the main Jira task's sub-tasks.
 
 1. Read the main Jira task from the current context and inspect its sub-tasks.
-2. If the current branch matches `stable-*`:
-   - Find the sub-task whose summary contains the text **"LTS"**.
-   - Use that sub-task's issue key as the branch name (e.g., `PPV-286`).
-3. If the current branch is `main`:
-   - Find the sub-task whose summary contains the text **"MAIN"**.
-   - Use that sub-task's issue key as the branch name (e.g., `PPV-285`).
-4. Before creating the branch, run `git pull` on the current base branch to ensure it is up to date.
-5. Create the new branch from the updated base branch.
+2. Match the current base branch to the corresponding sub-task and target base branch:
+
+   | Current branch | Sub-task summary pattern | Target base branch |
+   |----------------|--------------------------|--------------------|
+   | `stable-*` | contains **"LTS"** | the current `stable-*` branch |
+   | `main-X-Y` (e.g., `main-4-7`) | matches **"MAIN X.Y"** with the same version (e.g., "MAIN 4.7") | `main-X-Y` (e.g., `main-4-7`) |
+   | `main` | contains **"MAIN"** with **no** version suffix | `main` |
+
+3. **Versioned MAIN handling:** when a sub-task summary matches the pattern **"MAIN X.Y"** (e.g., "MAIN 4.7"), the target base branch is the versioned branch `main-x-y`, obtained by replacing the dot with a dash (`4.7` → `4-7`) and prefixing `main-` (result: `main-4-7`). Before using it, verify the branch exists in the repository:
+   - Check with `git ls-remote --heads origin main-4-7` (or `git branch -a --list "*main-4-7"`), or via the GitHub MCP branch listing.
+   - If the branch exists, use it as the target base branch.
+   - If the branch does **not** exist, warn the user and ask whether to fall back to `main` or use another branch. Do not silently create the sub-task branch from `main` when a versioned base was expected.
+4. **Disambiguation:** a summary containing "MAIN" followed by a version number (e.g., "MAIN 4.7") is a *versioned* MAIN sub-task and must NOT be treated as the plain "MAIN" sub-task. The plain "MAIN" sub-task is the one whose summary contains "MAIN" with no version number and maps to the `main` branch. When both exist (e.g., "MAIN" and "MAIN 4.7"), pick the one matching the current base branch.
+5. Use the resolved sub-task's issue key as the new branch name (e.g., `PPV-501`).
+6. Before creating the branch, run `git pull` on the target base branch to ensure it is up to date.
+7. Create the new branch from the updated target base branch.
 
 If no matching sub-task is found, fall back to asking the user which branch name should be created.
 
-Example:
+Example A — LTS:
 
 - Current branch: `stable-4-4`
 - Main Jira task: `PPV-262`
 - Sub-tasks: `PPV-285` (summary: "MAIN - VREncerramento - ..."), `PPV-286` (summary: "LTS - VREncerramento - ...")
 - Resolved branch: `PPV-286` (because current branch is `stable-*` and sub-task contains "LTS")
 - Commands: `git pull` → `git checkout -b PPV-286`
+
+Example B — versioned MAIN:
+
+- Current branch: `main-4-7`
+- Main Jira task: `PPV-498`
+- Sub-tasks: `PPV-500` ("MAIN - VRMaster - ..."), `PPV-501` ("MAIN 4.7 - VRMaster - ..."), `PPV-502` ("LTS - VRMaster - ...")
+- Resolved sub-task: `PPV-501` (summary matches "MAIN 4.7", which maps to base branch `main-4-7`)
+- Verify branch `main-4-7` exists, then: `git checkout main-4-7` → `git pull` → `git checkout -b PPV-501`
 
 ### Rule 2: Current branch already contains a task code
 
@@ -389,10 +407,11 @@ This step only applies when the sub-task used for the current PR is identified a
 **Workflow:**
 
 1. Read the main Jira task's sub-tasks list.
-2. Identify all other sub-tasks whose summary contains **"MAIN"** or **"LTS"** (excluding the one already used in the current PR).
+2. Identify all other sub-tasks whose summary contains **"MAIN"** (with or without a version) or **"LTS"** (excluding the one already used in the current PR).
 3. For each remaining qualifying sub-task:
    a. Determine its target base branch:
-      - If the sub-task summary contains **"MAIN"** → base branch is `main`.
+      - If the sub-task summary matches **"MAIN X.Y"** (e.g., "MAIN 4.7") → base branch is the versioned branch `main-x-y` (e.g., `main-4-7`; replace the dot with a dash and prefix `main-`). Verify the branch exists first; if it does not exist, warn the user and ask whether to fall back to `main` or skip that sub-task.
+      - If the sub-task summary contains **"MAIN"** with **no** version → base branch is `main`.
       - If the sub-task summary contains **"LTS"** → base branch is the `stable-*` branch (use the same `stable-*` branch from the repository context; if multiple exist, ask the user).
    b. Switch to the target base branch and run `git pull`.
    c. Create a new branch using the sub-task's issue key (e.g., `PPV-285`).
@@ -413,26 +432,102 @@ This step only applies when the sub-task used for the current PR is identified a
 - If a sub-task already has an open PR, skip it and report the existing PR URL.
 - The PR description and documentation content should be the same across all sub-tasks since they represent the same fix applied to different branches.
 
+### Step 11: Fill the Post-mortem field on the main task
+
+As the **final action** — after all PRs have been created and every sub-task documentation field has been updated — fill the Jira field **"Post-mortem"** (`customfield_10074`) on the **main (parent) Jira task only**.
+
+**Scope rule:**
+
+- Fill this field **only on the main Jira task from the current context** (the parent of the sub-tasks, e.g., `PPV-498`).
+- **Never** fill the Post-mortem field on the sub-tasks (e.g., `PPV-500`, `PPV-501`, `PPV-502`). It is a single record for the whole fix.
+
+**Jira API requirements:**
+
+- The field identifier is `customfield_10074`.
+- The field type is `textarea`, the same as **Informações de Documentação** (`customfield_10037`).
+- When calling the Jira MCP `editJiraIssue` tool, set `contentFormat: "adf"` and provide a valid ADF document.
+
+**Content — concise technical bug analysis (for the development team, not end users):**
+
+Unlike **Informações de Documentação** (written in end-user language), the Post-mortem is a **technical** analysis aimed at the development/engineering team. Base it on the inspected diff, commits, and the Jira description/analysis. Write in Portuguese (pt-BR), keep it **short and easy to understand**, and include these sections:
+
+- **Causa raiz:** the real technical cause of the defect, identified from the code and the fix.
+- **Solução aplicada:** what was changed to fix it (technical description; classes, queries, methods, or flows may be referenced here).
+- **Impacto:** what was affected, the scope, and the severity of the problem.
+- **Prevenção:** how to avoid recurrence (tests added, validations, monitoring, follow-ups) when applicable.
+
+Style requirements:
+
+- Be **concise** — ideally one or two short sentences per section; do not write long paragraphs.
+- Use **simple, clear language** that any developer can understand quickly. Avoid unnecessary jargon; when a technical term is required, keep it direct.
+- Focus on the essentials of each section — no filler, no repetition of the Jira description.
+
+Unlike the documentation field, the Post-mortem does **not** use literal HTML tags or `[[...]]` wiki markup — use normal ADF formatting (bold labels via the `strong` mark are fine).
+
+**ADF content structure:**
+
+```json
+{
+  "type": "doc",
+  "version": 1,
+  "content": [
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "Causa raiz: ", "marks": [{ "type": "strong" }] },
+        { "type": "text", "text": "{descrição técnica da causa raiz}" }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "Solução aplicada: ", "marks": [{ "type": "strong" }] },
+        { "type": "text", "text": "{o que foi alterado no código}" }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "Impacto: ", "marks": [{ "type": "strong" }] },
+        { "type": "text", "text": "{áreas afetadas e severidade}" }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "Prevenção: ", "marks": [{ "type": "strong" }] },
+        { "type": "text", "text": "{como evitar reincidência}" }
+      ]
+    }
+  ]
+}
+```
+
+**Idempotency:** if the Post-mortem field is already filled on the main task, do not overwrite it silently — show the current content and ask the user whether to replace it.
+
 ## Output Expectations
 
 At the end of the execution, report:
 
-1. Which branch was used or created.
+1. Which branch was used or created, and which base branch it was created from (including the versioned `main-x-y` case when applicable).
 2. Which Jira task was used as the main PR description title.
 3. Whether the PR was created successfully.
 4. Whether the Jira documentation field was updated successfully.
 5. Any point that required user confirmation.
 6. Which sub-tasks were replicated successfully and their PR URLs.
 7. Which sub-tasks were skipped (already done, already have PR, or conflict) and why.
+8. Whether the Post-mortem field was filled on the main task.
 
 ## Decision Rules
 
 ### Ask the user before proceeding when:
 
 - The user runs only `/vr-criar-pr` without a Jira task code.
-- The current branch is `main`, `master`, `stable-*`, or another protected/generic branch and no matching sub-task (LTS/MAIN) can be found automatically.
+- The current branch is `main`, `main-*`, `master`, `stable-*`, or another protected/generic branch and no matching sub-task (LTS/MAIN/MAIN X.Y) can be found automatically.
+- A sub-task matches the **"MAIN X.Y"** pattern but the versioned base branch `main-x-y` does not exist in the repository (ask whether to fall back to `main` or use another branch).
 - The main Jira task from the current context is unknown but required for the PR description title.
 - The application name or menu path required for **Informações de Documentação** cannot be inferred reliably.
+- The **Post-mortem** field is already filled on the main task and would be overwritten.
 - There is no visible implementation related to the requested task in the current branch.
 
 ### Do not proceed silently when:
@@ -457,8 +552,10 @@ Before finishing, ensure that:
 - An existing open PR was checked before creating a new one.
 - If the user invoked only `/vr-criar-pr`, the skill returned usage instructions instead of opening a PR.
 - If no code change is visible, the user was asked whether they want to proceed using only the Jira description.
-- If the current sub-task is MAIN or LTS, changes were replicated to the other qualifying sub-tasks.
+- If a sub-task matched the **"MAIN X.Y"** pattern, the versioned base branch `main-x-y` was verified to exist and used as the base for the branch and PR (or the user was asked when it was missing).
+- If the current sub-task is MAIN, MAIN X.Y, or LTS, changes were replicated to the other qualifying sub-tasks.
 - Sub-tasks that are already Done/Closed or already have an open PR were skipped during replication.
+- The Jira field **Post-mortem** (`customfield_10074`) was filled on the main task only, using `contentFormat: "adf"` and a technical bug analysis, and never on the sub-tasks.
 
 ## Example Scenarios
 
@@ -571,6 +668,26 @@ Expected behavior:
 - Update Jira documentation field for `PPV-286`.
 - Return to the original branch.
 - Report both PRs created successfully.
+
+### Scenario 7: Versioned MAIN sub-task (MAIN 4.7) and Post-mortem
+
+Context:
+
+- Current branch: `main-4-7`
+- Current Jira task in context: `PPV-498`
+- PPV-498 sub-tasks: `PPV-500` ("MAIN - VRMaster - ..."), `PPV-501` ("MAIN 4.7 - VRMaster - ..."), `PPV-502` ("LTS - VRMaster - ...")
+- Command: `/vr-criar-pr`
+
+Expected behavior:
+
+- Detect current branch is a versioned release branch (`main-4-7`).
+- Resolve the sub-task whose summary matches "MAIN 4.7" → `PPV-501`.
+- Verify branch `main-4-7` exists; use it as the base branch.
+- Run `git pull` on `main-4-7` and create branch `PPV-501` from it.
+- Create PR for `PPV-501` targeting `main-4-7`.
+- PR title uses `PPV-501`; PR body `<h1>` uses `PPV-498`.
+- **Step 10 triggers** (current sub-task contains "MAIN"): replicate to the other qualifying sub-tasks (`PPV-500` → base `main`, `PPV-502` → base `stable-*`), following their own base-branch rules.
+- **Step 11 (final):** fill the **Post-mortem** field (`customfield_10074`) with a technical bug analysis on the main task `PPV-498` only — not on `PPV-500`, `PPV-501`, or `PPV-502`.
 
 ## Usage Instructions When No Task Is Provided
 
