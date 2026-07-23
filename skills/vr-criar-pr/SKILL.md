@@ -1,7 +1,6 @@
 ---
 name: vr-criar-pr
 description: Create a pull request from the current context, Jira task, and implemented fix using GitHub MCP or GitHub CLI, then update the Jira documentation field with a release-friendly description.
-version: 1.5.0
 ---
 
 # Create PR
@@ -25,8 +24,8 @@ Using the current repository context, the Jira task, and the implemented fix:
 3. Detect whether a PR already exists for the current branch and avoid creating a duplicate.
 4. Create the pull request using GitHub MCP or GitHub CLI.
 5. Use the PR description template exactly as defined in this skill.
-6. Update the Jira field "Informações de Documentação" with a short, end-user-oriented description of the fix.
-7. As the final action, fill the Jira field "Post-mortem" with a technical bug analysis on the main (parent) task only.
+6. Update the Jira field "Informações de Documentação" on the MAIN Jira task (the parent issue from the current context, e.g. `PPV-316`), never on the sub-tasks, with a short, end-user-oriented description of the fix. This field is updated only once for the whole fix.
+7. As the final action, fill the Jira field "Post-mortem" with a concise technical bug analysis on the MAIN Jira task (the parent issue) only.
 
 ## Required Inputs
 
@@ -86,7 +85,7 @@ Before asking the user for a branch name, attempt automatic resolution using the
 
    | Current branch | Sub-task summary pattern | Target base branch |
    |----------------|--------------------------|--------------------|
-   | `stable-*` | contains **"LTS"** | the current `stable-*` branch |
+   | `stable-*` | contains **"LTS"** | `stable-4-4` (canonical LTS line) |
    | `main-X-Y` (e.g., `main-4-7`) | matches **"MAIN X.Y"** with the same version (e.g., "MAIN 4.7") | `main-X-Y` (e.g., `main-4-7`) |
    | `main` | contains **"MAIN"** with **no** version suffix | `main` |
 
@@ -278,9 +277,9 @@ Template rules:
 Preferred order:
 
 1. Use GitHub MCP if available and suitable for PR creation.
-2. Otherwise use GitHub CLI.
+2. Otherwise use GitHub CLI (`gh pr create`).
 
-If using GitHub CLI, use commands compatible with `gh pr create`, supplying at least:
+If using GitHub CLI, supply at least:
 
 - title
 - body
@@ -300,7 +299,9 @@ Example:
 
 ### Step 8: Update Jira documentation field
 
-After creating the PR, update the Jira field **"Informações de Documentação"** (`customfield_10037`).
+After creating the PR, update the Jira field **"Informações de Documentação"** (`customfield_10037`) **on the MAIN Jira task from the current context (the parent issue, e.g. `PPV-316`) — NEVER on the sub-tasks (MAIN/LTS)**.
+
+This field is updated **only once** for the whole fix, regardless of how many sub-tasks/PRs are created. The sub-tasks (`PPV-327`, `PPV-328`, etc.) are used only for branch naming, commits, and PR titles; the release documentation always lives on the parent task.
 
 Use a short description written for end users, not developers.
 
@@ -388,7 +389,7 @@ Corresponding ADF example:
 
 ### Step 9: Write the documentation text appropriately
 
-When filling **Informações de Documentação**:
+When filling **Informações de Documentação** (always on the MAIN/parent Jira task — see Step 8):
 
 - Use language appropriate for end users.
 - Do not mention classes, methods, commits, technical debt, refactoring, or implementation details.
@@ -407,12 +408,12 @@ This step only applies when the sub-task used for the current PR is identified a
 **Workflow:**
 
 1. Read the main Jira task's sub-tasks list.
-2. Identify all other sub-tasks whose summary contains **"MAIN"** (with or without a version) or **"LTS"** (excluding the one already used in the current PR).
+2. Identify all other sub-tasks whose summary contains **"MAIN"** or **"LTS"** (excluding the one already used in the current PR).
 3. For each remaining qualifying sub-task:
    a. Determine its target base branch:
       - If the sub-task summary matches **"MAIN X.Y"** (e.g., "MAIN 4.7") → base branch is the versioned branch `main-x-y` (e.g., `main-4-7`; replace the dot with a dash and prefix `main-`). Verify the branch exists first; if it does not exist, warn the user and ask whether to fall back to `main` or skip that sub-task.
       - If the sub-task summary contains **"MAIN"** with **no** version → base branch is `main`.
-      - If the sub-task summary contains **"LTS"** → base branch is the `stable-*` branch (use the same `stable-*` branch from the repository context; if multiple exist, ask the user).
+      - If the sub-task summary contains **"LTS"** → base branch is **always `stable-4-4`** (this is the canonical LTS line). Do not ask the user which `stable-*` branch to use; default directly to `stable-4-4`.
    b. Switch to the target base branch and run `git pull`.
    c. Create a new branch using the sub-task's issue key (e.g., `PPV-285`).
    d. Apply the same code changes (use `git cherry-pick` from the commit(s) of the original PR branch, or re-apply the diff).
@@ -421,7 +422,7 @@ This step only applies when the sub-task used for the current PR is identified a
    g. Push the branch.
    h. Check whether a PR already exists for this branch; if yes, skip PR creation and report the existing PR.
    i. Create a PR following the same template rules (Steps 5–7), using the new sub-task code for the PR title and the main Jira task for the body `<h1>`.
-   j. Update the Jira documentation field for the new sub-task following Step 8–9 rules.
+   j. Do NOT update the Jira documentation field per sub-task. The "Informações de Documentação" field is updated only once on the MAIN Jira task (parent issue) — see Step 8. Skip any per-sub-task documentation update during replication.
 
 4. After processing all sub-tasks, return to the original branch.
 
@@ -434,12 +435,12 @@ This step only applies when the sub-task used for the current PR is identified a
 
 ### Step 11: Fill the Post-mortem field on the main task
 
-As the **final action** — after all PRs have been created and every sub-task documentation field has been updated — fill the Jira field **"Post-mortem"** (`customfield_10074`) on the **main (parent) Jira task only**.
+As the **final action** — after all PRs have been created and the documentation field has been updated on the main task (Step 8) — fill the Jira field **"Post-mortem"** (`customfield_10074`) on the **main (parent) Jira task only**.
 
 **Scope rule:**
 
 - Fill this field **only on the main Jira task from the current context** (the parent of the sub-tasks, e.g., `PPV-498`).
-- **Never** fill the Post-mortem field on the sub-tasks (e.g., `PPV-500`, `PPV-501`, `PPV-502`). It is a single record for the whole fix.
+- **Never** fill the Post-mortem field on the sub-tasks (e.g., `PPV-500`, `PPV-501`, `PPV-502`). Like the documentation field, it is a single record for the whole fix.
 
 **Jira API requirements:**
 
@@ -546,7 +547,7 @@ Before finishing, ensure that:
 - The PR description body follows the exact template structure.
 - The PR body `<h1 align="center">...</h1>` title section uses the main Jira task from the current context.
 - If the command provided another task code such as `PPV-286`, that code was used only for branch naming when applicable.
-- The Jira field **Informações de Documentação** (`customfield_10037`) was updated with end-user-friendly language.
+- The Jira field **Informações de Documentação** (`customfield_10037`) was updated **on the MAIN Jira task (parent issue), not on the sub-tasks**, only once, with end-user-friendly language.
 - The Jira update used `contentFormat: "adf"` and the field value is a valid ADF document.
 - The Jira documentation text includes the `[[...]]` wiki-link markup with bold formatting in the ADF structure.
 - An existing open PR was checked before creating a new one.
@@ -555,7 +556,7 @@ Before finishing, ensure that:
 - If a sub-task matched the **"MAIN X.Y"** pattern, the versioned base branch `main-x-y` was verified to exist and used as the base for the branch and PR (or the user was asked when it was missing).
 - If the current sub-task is MAIN, MAIN X.Y, or LTS, changes were replicated to the other qualifying sub-tasks.
 - Sub-tasks that are already Done/Closed or already have an open PR were skipped during replication.
-- The Jira field **Post-mortem** (`customfield_10074`) was filled on the main task only, using `contentFormat: "adf"` and a technical bug analysis, and never on the sub-tasks.
+- The Jira field **Post-mortem** (`customfield_10074`) was filled on the main task only, using `contentFormat: "adf"` and a concise technical bug analysis, and never on the sub-tasks.
 
 ## Example Scenarios
 
@@ -573,7 +574,7 @@ Expected behavior:
 - Check whether a PR already exists.
 - Create PR using inspected changes.
 - Use `PPV-262` in the PR description title template.
-- Update Jira documentation field.
+- Update the Jira documentation field on the main task (parent issue).
 
 ### Scenario 2: Current branch is stable branch with automatic sub-task resolution
 
@@ -665,7 +666,7 @@ Expected behavior:
 - Cherry-pick the commit(s) from `PPV-285`.
 - Commit with message: `PPV-286 [fix] ...` (same description).
 - Push and create PR for `PPV-286` targeting `stable-4-4`.
-- Update Jira documentation field for `PPV-286`.
+- Update the Jira documentation field once on the MAIN Jira task `PPV-262` (parent issue) — not on the `PPV-285`/`PPV-286` sub-tasks.
 - Return to the original branch.
 - Report both PRs created successfully.
 
@@ -686,8 +687,9 @@ Expected behavior:
 - Run `git pull` on `main-4-7` and create branch `PPV-501` from it.
 - Create PR for `PPV-501` targeting `main-4-7`.
 - PR title uses `PPV-501`; PR body `<h1>` uses `PPV-498`.
-- **Step 10 triggers** (current sub-task contains "MAIN"): replicate to the other qualifying sub-tasks (`PPV-500` → base `main`, `PPV-502` → base `stable-*`), following their own base-branch rules.
-- **Step 11 (final):** fill the **Post-mortem** field (`customfield_10074`) with a technical bug analysis on the main task `PPV-498` only — not on `PPV-500`, `PPV-501`, or `PPV-502`.
+- **Step 10 triggers** (current sub-task contains "MAIN"): replicate to the other qualifying sub-tasks (`PPV-500` → base `main`, `PPV-502` → base `stable-4-4`), following their own base-branch rules.
+- Update the documentation field **once** on the MAIN Jira task `PPV-498` (parent issue) — not on the sub-tasks.
+- **Step 11 (final):** fill the **Post-mortem** field (`customfield_10074`) with a concise technical bug analysis on the main task `PPV-498` only — not on `PPV-500`, `PPV-501`, or `PPV-502`.
 
 ## Usage Instructions When No Task Is Provided
 
