@@ -1,7 +1,7 @@
 ---
-name: vr-analiza-bug
-description: Analyze a Jira task using the Jira MCP, classify the bug by complexity, inspect the current repository code to identify the real affected implementation path, and produce either a lightweight or structured correction analysis. Stop immediately if the Jira MCP is unavailable. If spec-kit is configured in the current repository, suggest creating a specification at the end.
-version: 2.3.0
+name: vr-analisa-bug
+description: Analyze a Jira task using the Jira MCP, classify the bug by complexity, inspect the current repository code to identify the real affected implementation path, and produce either a lightweight or structured correction analysis. Stop immediately if the Jira MCP is unavailable.
+version: 2.4.0
 ---
 
 # Bug Analyzer
@@ -14,7 +14,6 @@ Framework for analyzing bug reports from Jira, understanding the failure context
 - You need to understand a bug before changing code
 - You want the analysis effort to match the actual complexity of the problem
 - You want the agent to inspect the repository code instead of stopping at a high-level plan
-- You want to suggest `spec-kit` usage after analysis when it is configured in the current repository
 
 ## Mandatory Preconditions
 
@@ -38,7 +37,6 @@ Given a Jira task identifier in the format `{tarefa-jira}`, use the Jira MCP and
 5. Inspect the current repository to locate the most likely implementation path related to the bug.
 6. Identify the probable code points, classes, methods, event handlers, flows, or rules involved.
 7. Produce either a lightweight or structured analysis depending on complexity.
-8. At the end, check whether `spec-kit` is configured in the current repository and, if it is, suggest that the user may want to create the specification with `spec-kit`.
 
 ## Non-Negotiable Rule: Inspect the Code
 
@@ -62,16 +60,16 @@ If no relevant code can be found, explicitly say that the code inspection was in
 Supported invocation patterns:
 
 ```text
-/vr-analiza-bug PPV-262
+/vr-analisa-bug PPV-262
 ```
 
 ```text
-/vr-analiza-bug PPV-262 Informação adicional: O fluxo manual que está na descrição da tarefa se refere ao fluxo executado pelo VRMaster
+/vr-analisa-bug PPV-262 Informação adicional: O fluxo manual que está na descrição da tarefa se refere ao fluxo executado pelo VRMaster
 ```
 
 Interpretation rules:
 
-- The first argument after `/vr-analiza-bug` is the Jira issue key.
+- The first argument after `/vr-analisa-bug` is the Jira issue key.
 - Any remaining text must be treated as complementary context from the user.
 - User-provided complementary context must refine the analysis, never replace the Jira task as the primary source.
 
@@ -302,11 +300,6 @@ Use one of the following response formats depending on complexity.
 - High / Medium / Low
 - Short justification
 
-### Spec suggestion
-
-- If `spec-kit` is configured in the current repository, end with a suggestion asking whether the user wants to create the specification using `spec-kit`
-- If `spec-kit` is not configured, omit this section
-
 ## Decision Rules
 
 ### Stop Conditions
@@ -337,7 +330,7 @@ Stop immediately when:
 Input:
 
 ```text
-/vr-analiza-bug PPV-262
+/vr-analisa-bug PPV-262
 ```
 
 Expected behavior:
@@ -347,14 +340,13 @@ Expected behavior:
 - Inspect the repository code related to the issue
 - If simple, return a lightweight but code-based correction analysis
 - If not simple, return a structured investigation and correction analysis grounded in code findings
-- Suggest `spec-kit` usage at the end only if configured
 
 ### Example 2
 
 Input:
 
 ```text
-/vr-analiza-bug PPV-262 Informação adicional: O fluxo manual que está na descrição da tarefa se refere ao fluxo executado pelo VRMaster
+/vr-analisa-bug PPV-262 Informação adicional: O fluxo manual que está na descrição da tarefa se refere ao fluxo executado pelo VRMaster
 ```
 
 Expected behavior:
@@ -364,7 +356,6 @@ Expected behavior:
 - Inspect code for both the automatic and reference manual flows when possible
 - Reclassify complexity if code inspection changes the understanding
 - Return either a lightweight or structured analysis depending on the complexity and code findings
-- Suggest `spec-kit` usage at the end only if configured
 
 ## Authoring Notes
 
