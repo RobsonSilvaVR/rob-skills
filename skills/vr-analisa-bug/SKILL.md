@@ -1,7 +1,6 @@
 ---
 name: vr-analisa-bug
 description: Analyze a Jira task using the Jira MCP, classify the bug by complexity, inspect the current repository code to identify the real affected implementation path, and produce either a lightweight or structured correction analysis. Stop immediately if the Jira MCP is unavailable.
-version: 2.4.0
 ---
 
 # Bug Analyzer
@@ -25,6 +24,14 @@ Before starting the analysis:
 4. If the Jira issue key is missing or invalid, stop and report the issue.
 5. Confirm that the current repository is accessible for code inspection.
 6. If repository files cannot be inspected, state that the analysis will be limited to Jira understanding only.
+
+## Output Language (MANDATORY)
+
+- **The bug analysis delivered to the user MUST be written in Brazilian Portuguese (pt-BR).**
+- This applies to the entire analysis output: problem summary, understanding, code findings, hypotheses, investigation plan, correction plan, confidence level, and any closing questions or suggestions.
+- Technical identifiers stay as-is: code symbols, class/method/file names, file paths, log snippets, Jira keys, commit hashes, and command lines are not translated.
+- Internal reasoning and tool usage may be in any language, but the **final response shown to the user must be in pt-BR**.
+- This rule is non-negotiable and overrides any default tendency to answer in English.
 
 ## Primary Objective
 
@@ -240,7 +247,7 @@ If the issue appears to be a desktop-flow bug, prefer checking event ordering, s
 
 ## Output Structure
 
-Use one of the following response formats depending on complexity.
+Use one of the following response formats depending on complexity. **Regardless of the chosen format, the response must be written in Brazilian Portuguese (pt-BR)** — see "Output Language (MANDATORY)".
 
 ### Format A: Low complexity
 
@@ -312,6 +319,7 @@ Stop immediately when:
 
 ### Quality Rules
 
+- **Always deliver the final analysis to the user in Brazilian Portuguese (pt-BR)** — see the "Output Language (MANDATORY)" section
 - Prefer facts from Jira over assumptions
 - Explicitly separate confirmed information from inference
 - Match the analysis depth to the bug complexity
