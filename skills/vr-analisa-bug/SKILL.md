@@ -1,6 +1,6 @@
 ---
 name: vr-analisa-bug
-description: Analyze a Jira task using the Jira MCP, classify the bug by complexity, inspect the current repository code to identify the real affected implementation path, and produce either a lightweight or structured correction analysis. Stop immediately if the Jira MCP is unavailable.
+description: Analyze a Jira task using the Jira MCP, classify the bug by complexity, inspect the current repository code to identify the real affected implementation path, and produce either a lightweight or structured correction analysis. After the user reviews the analysis, optionally implement the approved correction plan on a correctly-created branch (same branch rules as vr-criar-pr, always pulling the base branch first). Stop immediately if the Jira MCP is unavailable.
 ---
 
 # Bug Analyzer
@@ -13,6 +13,7 @@ Framework for analyzing bug reports from Jira, understanding the failure context
 - You need to understand a bug before changing code
 - You want the analysis effort to match the actual complexity of the problem
 - You want the agent to inspect the repository code instead of stopping at a high-level plan
+- You want the option to implement the approved correction plan on a correctly-created branch after reviewing the analysis
 
 ## Mandatory Preconditions
 
@@ -307,6 +308,52 @@ Use one of the following response formats depending on complexity. **Regardless 
 - High / Medium / Low
 - Short justification
 
+## Post-Analysis Review Gate (MANDATORY)
+
+After delivering the analysis (Format A or B), **stop and wait for the user's review**. Do not start implementing the correction plan automatically.
+
+- Present the correction plan and explicitly ask the user how they want to proceed.
+- The user may either:
+  1. **Request the implementation** — ask this skill to implement the approved correction plan; then proceed to "Correction Plan Implementation".
+  2. **Implement it themselves** — in that case this skill does nothing further unless asked again.
+- Only move to the implementation phase when the user explicitly asks for it.
+- If the user first requests changes to the plan, revise the analysis and ask again; never implement before approval.
+
+## Correction Plan Implementation
+
+Run this phase **only** after the user has reviewed the analysis and explicitly requested the implementation.
+
+### Step I1: Branch/worktree setup (before writing any code)
+
+Create the correct branch **before** touching any file, reusing the exact branch-resolution rules from the `vr-criar-pr` skill ("Branch Rules" → "Automatic sub-task branch resolution"). Do not re-invent this logic; keep it aligned with `vr-criar-pr`.
+
+1. Read the main Jira task from the current context and inspect its sub-tasks.
+2. Resolve the target base branch from the sub-task summary:
+   - contains **"LTS"** → base branch `stable-4-4` (canonical LTS line)
+   - matches **"MAIN X.Y"** (e.g., "MAIN 4.7") → versioned base branch `main-x-y` (e.g., `main-4-7`); verify the branch exists first (`git ls-remote --heads origin main-4-7`), otherwise warn the user and ask before continuing
+   - contains **"MAIN"** with no version → base branch `main`
+3. **Always run `git pull` on the target base branch before creating the task branch**, so the new branch starts from the latest base.
+4. Create the task branch — and its git worktree when the workflow uses worktrees — from the updated base branch, named with the resolved sub-task issue key (e.g., `PPV-501`).
+5. If no sub-task matches, or the base branch is ambiguous, ask the user before creating anything.
+
+Do not start editing files until the branch has been created from the correct, up-to-date base.
+
+### Step I2: Implement the approved correction plan
+
+- Implement strictly what the approved correction plan describes; do not expand the scope.
+- Base the changes on the inspected code (Step 6) and follow the project's existing conventions.
+- Keep the changes focused on the identified affected area(s).
+
+### Step I3: Validate the build
+
+- Follow "Build Validation Preference" (prefer Gradle over Maven).
+- Report build and test results honestly, including any failures.
+
+### Step I4: Hand off to PR creation
+
+- After implementation and local validation, use the `vr-criar-pr` skill to commit, open the PR, replicate to the other sub-tasks, and update the Jira fields.
+- Do not duplicate commit/PR/Jira logic here — `vr-criar-pr` owns that flow.
+
 ## Decision Rules
 
 ### Stop Conditions
@@ -330,6 +377,8 @@ Stop immediately when:
 - Avoid heavyweight investigation structure for clearly simple issues
 - Do not state that a hypothesis is confirmed unless the available evidence clearly supports it
 - Do not present only a high-level plan when concrete code evidence can be inspected
+- After delivering the analysis, wait for the user's review; only implement the correction plan when the user explicitly requests it, and never implement automatically
+- When implementing, always create the task branch from the correct base branch after running `git pull` on that base (reusing the `vr-criar-pr` branch rules) before editing any file
 
 ## Example Behavior
 
@@ -365,8 +414,25 @@ Expected behavior:
 - Reclassify complexity if code inspection changes the understanding
 - Return either a lightweight or structured analysis depending on the complexity and code findings
 
+### Example 3
+
+Input:
+
+```text
+/vr-analisa-bug PPV-498
+```
+
+Expected behavior:
+
+- Read Jira task `PPV-498` via Jira MCP, classify complexity, and inspect the related code.
+- Deliver the analysis and the correction plan, then **stop and wait for the user's review**.
+- If the user requests the implementation:
+  - Resolve the sub-task and its target base branch (e.g., "MAIN 4.7" → `main-4-7`), run `git pull` on that base, and create the task branch (e.g., `PPV-501`) from the updated base before editing any code.
+  - Implement the approved correction plan, validate the build, and hand off to `vr-criar-pr` for commit and PR.
+- If the user implements it themselves, do nothing further unless asked.
+
 ## Authoring Notes
 
-This skill is designed to work as a pre-implementation analysis step. Its purpose is to improve problem understanding and fix planning before code changes begin, without forcing heavyweight analysis on simple issues.
+This skill is designed to work as an analysis-first step: it improves problem understanding and fix planning before code changes begin, without forcing heavyweight analysis on simple issues. After the user reviews the analysis, it can optionally implement the approved correction plan, always creating the task branch from the correct, up-to-date base (reusing the `vr-criar-pr` branch rules) before editing any code.
 
 It is especially useful for desktop applications and Java Swing codebases where some bugs are highly localized while others depend on UI events, local state, user interaction sequences, or environment-specific behavior.
