@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Skills](https://img.shields.io/badge/skills-2-orange.svg)](#skills-disponíveis)
+[![Skills](https://img.shields.io/badge/skills-3-orange.svg)](#skills-disponíveis)
 
 </div>
 
@@ -20,8 +20,9 @@ Este repositório contém uma coleção open-source de **skills customizadas** p
 
 | Skill | Versão | Descrição |
 |-------|--------|-----------|
-| [bug-analyzer](skills/bug-analyzer/SKILL.md) | 2.2.0 | Analisa tarefas do Jira, classifica a complexidade do bug, inspeciona o código do repositório e produz uma análise de correção estruturada. |
-| [create-pr](skills/create-pr/SKILL.md) | 1.2.0 | Cria um pull request a partir do contexto atual, tarefa Jira e fix implementado, usando GitHub MCP ou GitHub CLI. |
+| [vr-analisa-bug](skills/vr-analisa-bug/SKILL.md) | 2.2.0 | Analisa tarefas do Jira, classifica a complexidade do bug, inspeciona o código do repositório e produz uma análise de correção estruturada. |
+| [vr-criar-pr](skills/vr-criar-pr/SKILL.md) | 1.2.0 | Cria um pull request a partir do contexto atual, tarefa Jira e fix implementado, usando GitHub MCP ou GitHub CLI. |
+| [pendencias-gh](skills/pendencias-gh/SKILL.md) | 1.0.0 | Lista as pendências dos seus PRs no GitHub — conversas de review não resolvidas, conflitos de merge e checks de CI falhando — consultando a API ao vivo via `gh api graphql`. |
 
 ## 📦 Instalação
 
@@ -35,20 +36,28 @@ git clone https://github.com/RobsonSilvaVR/rob-skills.git
 
 ```bash
 # Copiar uma skill específica
-cp -r rob-skills/skills/bug-analyzer ~/.copilot/skills/
+cp -r rob-skills/skills/vr-analisa-bug ~/.copilot/skills/
 
 # Ou copiar todas
 cp -r rob-skills/skills/* ~/.copilot/skills/
 ```
+
+> As skills seguem o formato `SKILL.md` com front matter, também reconhecido pelo
+> Claude Code — nesse caso, copie para `~/.claude/skills/` em vez de `~/.copilot/skills/`.
 
 ## 📂 Estrutura do Repositório
 
 ```
 rob-skills/
 ├── skills/
-│   ├── bug-analyzer/
+│   ├── pendencias-gh/
+│   │   ├── SKILL.md
+│   │   ├── pending.graphql
+│   │   └── scripts/
+│   │       └── pendencias.sh
+│   ├── vr-analisa-bug/
 │   │   └── SKILL.md
-│   └── create-pr/
+│   └── vr-criar-pr/
 │       └── SKILL.md
 ├── .github/
 │   ├── ISSUE_TEMPLATE/
@@ -56,6 +65,7 @@ rob-skills/
 │   │   ├── feature_request.md
 │   │   └── new_skill_proposal.md
 │   └── PULL_REQUEST_TEMPLATE.md
+├── .gitattributes
 ├── CONTRIBUTING.md
 ├── LICENSE
 └── README.md

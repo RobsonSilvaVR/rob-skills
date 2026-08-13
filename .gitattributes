@@ -1,0 +1,3 @@
+# Scripts precisam de LF mesmo em checkout no Windows: CRLF quebra o shebang
+# com "bash: $'\r': command not found" em Linux/WSL.
+*.sh text eol=lf

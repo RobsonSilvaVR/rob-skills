@@ -1,0 +1,42 @@
+query($qMine: String!, $after: String) {
+  viewer { login }
+  rateLimit { cost remaining resetAt }
+  mine: search(query: $qMine, type: ISSUE, first: 100, after: $after) {
+    issueCount
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      ... on PullRequest {
+        number
+        title
+        url
+        isDraft
+        mergeable
+        repository { nameWithOwner }
+        reviewThreads(first: 20) {
+          nodes {
+            isResolved
+            comments(first: 50) {
+              nodes { url bodyText author { login } }
+            }
+          }
+        }
+        commits(last: 1) {
+          nodes {
+            commit {
+              statusCheckRollup {
+                state
+                contexts(last: 20) {
+                  nodes {
+                    __typename
+                    ... on CheckRun { name conclusion detailsUrl }
+                    ... on StatusContext { context state targetUrl }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
