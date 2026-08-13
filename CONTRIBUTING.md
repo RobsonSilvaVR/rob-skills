@@ -60,14 +60,14 @@ Para propor uma nova skill:
    ```bash
    git checkout -b feat/nova-skill-nome
    # ou
-   git checkout -b fix/correcao-bug-analyzer
+   git checkout -b fix/correcao-vr-analisa-bug
    ```
 4. Faça suas alterações seguindo os [padrões do projeto](#padrões-do-projeto)
 5. **Commit** com mensagens claras:
    ```bash
    git commit -m "feat: adiciona skill de análise de código"
    # ou
-   git commit -m "fix: corrige classificação de complexidade no bug-analyzer"
+   git commit -m "fix: corrige classificação de complexidade no vr-analisa-bug"
    ```
 6. **Push** para seu fork:
    ```bash
@@ -105,8 +105,12 @@ Cada skill deve estar em seu próprio diretório dentro de `skills/`:
 ```
 skills/
 └── nome-da-skill/
-    └── SKILL.md
+    ├── SKILL.md          obrigatório
+    └── scripts/          opcional — código executável da skill
 ```
+
+Arquivos auxiliares (scripts, queries, templates) ficam junto do `SKILL.md`, que os
+referencia por caminho relativo à sua própria pasta.
 
 ### Formato do SKILL.md
 
@@ -116,10 +120,14 @@ O arquivo `SKILL.md` deve conter:
    ```yaml
    ---
    name: nome-da-skill
-   description: Descrição concisa do que a skill faz.
-   version: 1.0.0
+   description: O que a skill faz e quando acioná-la, incluindo os gatilhos em
+     linguagem natural que devem dispará-la.
    ---
    ```
+
+   `description` é o que o Claude lê para decidir se aciona a skill — descreva o
+   comportamento **e** os gatilhos. A versão da skill é registrada na tabela do
+   README, não no front matter.
 
 2. **Título** — nome legível da skill
 3. **Descrição** — explicação do propósito
