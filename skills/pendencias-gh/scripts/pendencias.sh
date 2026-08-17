@@ -51,7 +51,10 @@ def ordena: sort_by(.repo, -.pr);
              titulo: $pr.title,
              detalhe: ($c.bodyText | trunc),
              url: (if ($c.url // "") == "" then $pr.url else $c.url end),
-             autor: $c.author.login }
+             autor: $c.author.login,
+             isDraft: $pr.isDraft,
+             baseRefName: $pr.baseRefName,
+             updatedAt: $pr.updatedAt }
        ] | ordena)
       +
       ([ $prs[]
@@ -62,7 +65,10 @@ def ordena: sort_by(.repo, -.pr);
              titulo: .title,
              detalhe: "Conflito com a base",
              url: .url,
-             autor: null }
+             autor: null,
+             isDraft: .isDraft,
+             baseRefName: .baseRefName,
+             updatedAt: .updatedAt }
        ] | ordena)
       +
       ([ $prs[]
@@ -84,7 +90,10 @@ def ordena: sort_by(.repo, -.pr);
                        then "CI/checks falhando: " + ($falhas | join(", "))
                        else "CI/checks falhando" end),
              url: ($pr.url + "/checks"),
-             autor: null }
+             autor: null,
+             isDraft: $pr.isDraft,
+             baseRefName: $pr.baseRefName,
+             updatedAt: $pr.updatedAt }
        ] | ordena)
     )
   }

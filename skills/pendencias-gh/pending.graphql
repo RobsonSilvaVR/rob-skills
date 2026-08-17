@@ -11,6 +11,8 @@ query($qMine: String!, $after: String) {
         url
         isDraft
         mergeable
+        baseRefName
+        updatedAt
         repository { nameWithOwner }
         reviewThreads(first: 20) {
           nodes {

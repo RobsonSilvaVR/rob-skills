@@ -43,11 +43,19 @@ Ele imprime JSON em stdout:
   "login": "...", "total": 62, "varridos": 62, "temMais": false,
   "custo": 23, "restante": 4564,
   "itens": [{ "tipo": "Conversa", "repo": "org/repo", "pr": 639,
-              "titulo": "...", "detalhe": "...", "url": "...", "autor": "..." }]
+              "titulo": "...", "detalhe": "...", "url": "...", "autor": "...",
+              "isDraft": false, "baseRefName": "main",
+              "updatedAt": "2026-08-13T19:49:20Z" }]
 }
 ```
 
 Os itens já vêm agrupados na ordem Conversa → Conflito → Checks e, dentro de cada grupo, ordenados por repositório (A→Z) e número de PR (desc). **Preserve essa ordem** — é a mesma da aba.
+
+### Campos do PR nos itens
+
+`isDraft`, `baseRefName` e `updatedAt` são propriedades do **pull request**, não da pendência: quando um PR aparece em vários itens (uma conversa e um conflito, por exemplo), os três se repetem iguais em cada item. Eles existem para quem consome o JSON de forma programática não precisar de uma segunda consulta por PR.
+
+**A varredura inclui PRs em rascunho** — a query é `is:pr is:open author:@me archived:false`, sem filtro de draft, para espelhar a aba do DevInbox. Quem consome decide o que fazer: no relatório para o usuário, os rascunhos aparecem normalmente; um consumidor que só queira PRs prontos deve descartar `isDraft: true` por conta própria.
 
 ### Tratamento de erros
 
